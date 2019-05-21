@@ -1,0 +1,18 @@
+#cloud-config
+runcmd:
+- [ 'sh', '-c', 'sudo mkdir /etc/test_pramod']
+- [ 'sh', '-c', 'sudo mkdir /etc/test_pramod2']
+- printf "\n\n\n\n\nRunning Cloud Init commands\n"
+- printf "\n\nInstalling node and related apps\n"
+- sudo apt-get update -y
+- sudo apt-get install -y curl python-software-properties
+- curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
+- sudo apt-get install -y nodejs
+- printf "\n\nInstall createreact app\n"
+- sudo npm install create-react-app -g
+- create-react-app my-app
+- cd my-app
+- printf "\n\starting app\n"
+- sudo npm start
+- printf "\nyesFinished at $(date)\n\n\n\n\n"
+- [ 'sh', '-c', 'sudo mkdir /etc/test_pramod3']
