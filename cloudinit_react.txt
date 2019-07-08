@@ -6,13 +6,12 @@ runcmd:
 - sudo apt-get update -y
 - sudo apt-get install -y curl python-software-properties
 - curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
-- git clone https://github.com/reddypramod85/weekly-pattern-5-dashboard.git
 - sudo apt-get install -y nodejs
 - printf "\n\nInstall createreact app\n"
-- sudo npm install -g yarnpkg
-- cd weekly-pattern-5-dashboard
-- sudo yarn install
+- sudo npm install create-react-app -g
+- create-react-app my-app
+- cd my-app
 - printf "\n\starting app\n"
-- sudo yarn start
+- sudo npm start
 - printf "\nyesFinished at $(date)\n\n\n\n\n"
 - [ 'sh', '-c', 'sudo mkdir /etc/test_pramod2']

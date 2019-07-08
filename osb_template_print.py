@@ -218,23 +218,31 @@ def last_operation(instance_id):
                 X_BROKER_API_VERSION_NAME,
                 X_BROKER_API_MAJOR_VERSION,
                 X_BROKER_API_MINOR_VERSION))
+    print("inside last operation")
+    print("instance_id",instance_id)
+    print("ec2_instance_id inside last operation",ec2_instance_id)
     global ec2_ip_addr
     ec2_ip_addr,state = get_public_ip_address(ec2_instance_id)
+    print("inside last operation ec2_ip_addr,state ",ec2_ip_addr,state)
     if (state == u'pending'):
+        print("inside lat operation pending")
         return {"state": "in progress"}
     else:
+        print("inside lat operation succeeded")
         return {"state": "succeeded"}
 		
 	
 def get_public_ip_address(instanceId):
     # When passed a tag key, tag value this will return a list of InstanceIds that were found.
     ec2client = boto3.client('ec2')
+    print("instance id insed get public ip addr",instanceId)
     boto3.set_stream_logger('boto3.resources', logging.INFO)
     response = ec2client.describe_instances(InstanceIds=[instanceId,])
     for reservation in (response["Reservations"]):
         for instance in reservation["Instances"]:
             public_ip_address = (instance["PublicIpAddress"])
             state_status = instance['State']['Name']
+            print("inside get public ip address :::: public_ip_address,state_status",public_ip_address,state_status)
     return public_ip_address,state_status
 
 @bottle.route('/v2/catalog', method='GET')
@@ -257,7 +265,6 @@ def catalog():
       https://github.com/openservicebrokerapi/servicebroker/blob/v2.13/spec.md
     """
     api_version = bottle.request.headers.get('X-Broker-API-Version')
-    print("inside catalog")
     if (not api_version or not (api_version_is_valid(api_version))):
         bottle.abort(
             409,
@@ -305,26 +312,41 @@ def provision(instance_id):
         bottle.abort(415, 'Unsupported Content-Type: expecting application/json')
     # get the JSON document in the BODY
     provision_details = bottle.request.json
+    print("Inside provision function")
+    print("provision_details",provision_details)
+
     planId = bottle.request.json['plan_id']
     serviceId = bottle.request.json['service_id']
     parameters = bottle.request.json['parameters']
-    print("inside provision")
+    print("parameters",parameters)
+    print("planId",planId)
 # Assign these values before running the program
     access_key_id = parameters.get('Access_Key_ID')
+    access_key_id = 'AKIAUWDMTYRVJOHOCP4V'
+    print("access_key_id",access_key_id)
     secret_access_key = parameters.get('Secret_Access_Key')
     secret_access_key = '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'
+    print("secret_access_key",secret_access_key)
     image_id = parameters.get('Image_ID')
+    image_id = 'ami-05f07ee3c7aaadaaa'
+    print("image_id",image_id)
     instance_type = parameters.get('Flavor')
+    print("instance_type",instance_type)
     region = parameters.get('region')
     region ='us-east-1'
+    print("region",region)
 	
     #image_id = 'ami-05f07ee3c7aaadaaa'
     keypair_name = 'ec2-keypair'
     user_data = open(os.getcwd() + '/cloudinit.txt', 'r').read()
     #user_data = open(os.getcwd() + '/userdata.txt', 'r').read()
+    print("user data", user_data)
     hd = os.path.expanduser('~')
     directory = hd + '/.aws'
+    print("hd",hd)
+    print("directory",directory)
     if not os.path.exists(directory):
+        print("not exist")
         os.mkdir(os.path.join(hd, '.aws'))
     with open (hd+"/.aws/credentials", 'w+') as credentials:
         credentials.write('[default]' + '\n' + 'aws_access_key_id = ' + access_key_id + '\n' + 'aws_secret_access_key = ' + secret_access_key)
@@ -333,10 +355,13 @@ def provision(instance_id):
 	
     # Provision and launch the EC2 instance
     instance_info = create_ec2_instance(image_id, instance_type, keypair_name, user_data)
+    print("instance infoooooooo",instance_info)
     global ec2_instance_id
     ec2_instance_id = instance_info["InstanceId"]
+    print("ec2_instance_id inside provision",ec2_instance_id)
     bottle.response.status = 202
     #ec2_ip_addr = instance_info['Instances'][0]['PublicIpAddress']
+    print("public address inside provision", ec2_ip_addr)
     dashboard_url = "http://"+ec2_ip_addr+":3000"
     return {"dashboard_url": dashboard_url} 
     #return {"public ipaddress": ec2_ip_addr}
@@ -368,6 +393,12 @@ def create_ec2_instance(image_id, instance_type, keypair_name, user_data):
                                             ]
 		                                    )
         instance = response['Instances'][0]
+        print "Instance  %s" % instance
+        print "Instance State name []: %s" % instance['State']['Name']
+        #while instance['State']['Name'] == u'pending':
+        #    print "Instance State: %s" % instance['State']['Name']
+        #    time.sleep(5)
+        #    instance.update()
     except ClientError as e:
         logging.error(e)
         return None
@@ -393,7 +424,6 @@ def deprovision(instance_id):
     #ec2_client = boto3.client('ec2')
 	#ec2.Instance('i-00434b87058703892').terminate()
     #ec2.instances.filter(InstanceIds=ids).terminate()
-    print("inside deprovision")
     return {}
 
 @bottle.route('/v2/service_instances/<instance_id>/service_bindings/<binding_id>', method='PUT')
@@ -425,9 +455,9 @@ def bind(instance_id, binding_id):
         bottle.abort(415, 'Unsupported Content-Type: expecting application/json')
     # get the JSON document in the BODY
     binding_details = bottle.request.json
+    print(binding_details)
     bottle.response.status = 201
     uri ="http://"+ec2_ip_addr+":3000"
-    print("inside binding")
     return {"credentials": {"uri": uri, "username": "ubuntu"}}
 
 @bottle.route('/v2/service_instances/<instance_id>/service_bindings/<binding_id>', method='DELETE')
@@ -447,7 +477,6 @@ def unbind(instance_id, binding_id):
         As of API 2.3, an empty JSON document
         is expected
     """
-    print("inside unbinding")
     return {}
 
 if __name__ == '__main__':
