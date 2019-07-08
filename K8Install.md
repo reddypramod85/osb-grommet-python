@@ -11,18 +11,14 @@ There are three CentOS7 VM's in this demo as shown below.
 | Centos7-worker  | k8worker2.etss.lab   |  192.168.171.103 | Worker2 |
 
 #### Reference
-Install kubeadm https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
-
-Create-cluster-kubeadm https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/
-
-Cluster administration addons https://kubernetes.io/docs/concepts/cluster-administration/addons/
-
-Service Catalog https://kubernetes.io/docs/concepts/extend-kubernetes/service-catalog/
-
-Install service catalog using helm https://kubernetes.io/docs/tasks/service-catalog/install-service-catalog-using-helm/
-
-Installing the service catalog cli https://svc-cat.io/docs/install/#installing-the-service-catalog-cli
-
+- Install kubeadm https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
+- Create-cluster-kubeadm https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/
+- kubeadm 1.9.2 doesn't work over proxy, https://github.com/kubernetes/kubeadm/issues/687
+- Installing a pod network add-on, https://kubernetes.io/docs/setup/independent/create-cluster-kubeadm/#pod-network
+- Cluster administration addons https://kubernetes.io/docs/concepts/cluster-administration/addons/
+-Service Catalog https://kubernetes.io/docs/concepts/extend-kubernetes/service-catalog/
+- Install service catalog using helm https://kubernetes.io/docs/tasks/service-catalog/install-service-catalog-using-helm/
+- Installing the service catalog cli https://svc-cat.io/docs/install/#installing-the-service-catalog-cli
 
 ## Virtual Machines
 We configure the k8master.etss.lab as K8s master node and k8worker1.etss.lab and k8worker2.etss.lab as K8s worker nodes and install different components of K8s on them.
@@ -263,13 +259,6 @@ k8master.etss.lab   Ready    master   5m42s   v1.15.0   192.168.171.102   <none>
 k8worker1.etss.lab        Ready    <none>   12s     v1.15.0   192.168.171.107   <none>        CentOS Linux 7 (Core)   3.10.0-957.21.3.el7.x86_64   docker://18.6.2
 k8worker2.etss.lab        Ready    <none>   12s     v1.15.0   192.168.171.103   <none>        CentOS Linux 7 (Core)   3.10.0-957.21.3.el7.x86_64   docker://18.6.2
 ```
-
-#### Reference
-- Installing Kubernetes with deployment tools, https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
-- How to Install and Configure Kubernetes and Docker on Ubuntu 18.04 LTS, https://www.howtoforge.com/tutorial/how-to-install-kubernetes-on-ubuntu/
-- How To Install Kubernetes Cluster On Ubuntu 16.04, https://www.edureka.co/blog/install-kubernetes-on-ubuntu
-- kubeadm 1.9.2 doesn't work over proxy, https://github.com/kubernetes/kubeadm/issues/687
-- Installing a pod network add-on, https://kubernetes.io/docs/setup/independent/create-cluster-kubeadm/#pod-network
 
 ## Ghost Application
 ```bash
