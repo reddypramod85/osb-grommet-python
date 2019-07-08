@@ -312,7 +312,6 @@ def provision(instance_id):
 # Assign these values before running the program
     access_key_id = parameters.get('Access_Key_ID')
     secret_access_key = parameters.get('Secret_Access_Key')
-    secret_access_key = 'qy5JNlgUrNXYY5luUslEnoY57bQt/b38tz/MemV1'
     image_id = parameters.get('Image_ID')
     instance_type = parameters.get('Flavor')
     region = parameters.get('region')
