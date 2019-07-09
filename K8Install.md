@@ -85,7 +85,7 @@ echo -e '{
   ]
 }' | sudo tee /etc/docker/daemon.json
 
-mkdir -p /etc/systemd/system/docker.service.d
+sudo mkdir -p /etc/systemd/system/docker.service.d
 # add current user to docker user group
 sudo usermod -aG docker ${USER} 
 sudo systemctl enable docker
@@ -95,12 +95,12 @@ sudo systemctl restart docker.service
 ```
 To verify, run the following:
 ```bash
-$ docker info | grep Driver
+$ sudo docker info | grep Driver
 Storage Driver: overlay2
 Logging Driver: json-file
 Cgroup Driver: systemd
 #Test docker installation
-$ docker run hello-world
+$ sudo docker run hello-world
 ```
 #### Docker Proxy
 You may also need to setup proxy if running inside HPE network. Add the following to ```/etc/systemd/system/docker.service.d/http-proxy.conf``` and restart docker ```sudo systemctl daemon-reload && sudo systemctl restart docker```:
@@ -131,15 +131,15 @@ gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cl
 exclude=kube*
 EOF
 # Set SELinux in permissive mode (effectively disabling it)
-setenforce 0
-sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config
-yum install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
-systemctl enable --now kubelet
+sudo setenforce 0
+sudo sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config
+sudo yum install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
+sudo systemctl enable --now kubelet
 cat <<EOF >  /etc/sysctl.d/k8s.conf
 net.bridge.bridge-nf-call-ip6tables = 1
 net.bridge.bridge-nf-call-iptables = 1
 EOF
-sysctl --system
+sudo sysctl --system
 
 
 ```
@@ -244,7 +244,48 @@ kube-system   kube-flannel-ds-amd64-kzxth                       1/1     Running 
 kube-system   kube-proxy-zkfkm                                  1/1     Running   0          3m38s
 kube-system   kube-scheduler-k8master.etss.lab            1/1     Running   0          2m46s
 ```
+* NOTE if you don't see coredns-* pods are running, dont worry. kube-dns will be in pending state until a ‘network’ solution is deployed. This is expected behavior
+```bash
+[centos@ip-172-31-33-85 ~]$ kubectl get pods --all-namespaces
+NAMESPACE     NAME                                                   READY   STATUS    RESTARTS   AGE
+kube-system   coredns-5c98db65d4-5z6cs                               0/1     Pending   0          19m
+kube-system   coredns-5c98db65d4-jdqr9                               0/1     Pending   0          19m
+kube-system   etcd-ip-172-31-33-85.ec2.internal                      1/1     Running   0          18m
+kube-system   kube-apiserver-ip-172-31-33-85.ec2.internal            1/1     Running   0          18m
+kube-system   kube-controller-manager-ip-172-31-33-85.ec2.internal   1/1     Running   0          18m
+kube-system   kube-proxy-f9l5w                                       1/1     Running   0          19m
+kube-system   kube-scheduler-ip-172-31-33-85.ec2.internal            1/1     Running   0          18m
+```
+### Schedule PODs on the Master Node
+To schedule PODs on the master node (i.e.: we build a single machine Kubernetes cluster):
+```bash
+kubectl taint nodes --all node-role.kubernetes.io/master-
+### you see untained message as below
+node/ip-X.X.X.X.internal untainted
 
+### Installing a POD network:
+We will install flannel
+```bash
+kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/62e44c867a2846fefb68bd5f178daf4da3095ccb/Documentation/kube-flannel.yml
+```
+Notice the POD kube-dns is now running and the node is ready. This confirms that the cluster is working. You can continue by joining K8s nodes (if any).
+```bash
+$ kubectl get pods --all-namespaces
+NAMESPACE     NAME                                                   READY   STATUS    RESTARTS   AGE
+kube-system   coredns-5c98db65d4-5z6cs                               1/1     Running   0          21m
+kube-system   coredns-5c98db65d4-jdqr9                               1/1     Running   0          21m
+kube-system   etcd-ip-172-31-33-85.ec2.internal                      1/1     Running   0          19m
+kube-system   kube-apiserver-ip-172-31-33-85.ec2.internal            1/1     Running   0          20m
+kube-system   kube-controller-manager-ip-172-31-33-85.ec2.internal   1/1     Running   0          20m
+kube-system   kube-flannel-ds-amd64-lcc9q                            1/1     Running   0          31s
+kube-system   kube-proxy-f9l5w                                       1/1     Running   0          21m
+kube-system   kube-scheduler-ip-172-31-33-85.ec2.internal            1/1     Running   0          20m
+
+$ kubectl get nodes
+NAME                           STATUS   ROLES    AGE   VERSION
+ip-X.X.X.X.internal   Ready    master   21m   v1.15.0
+
+```
 ### Worker node
 Switch worker nodes and run the following to join the cluster:
 ```bash
@@ -418,49 +459,15 @@ kube-system   tiller-deploy-5dc46c877-7n5ph                         1/1     Runn
 ```
 * If you choose ```Flannel``` as the CNI (like what we do in this document), do make sure you use ```--pod-network-cidr=10.244.0.0/16``` for ```kubeadm init```. Otherwise, Istio pods may fail during creation.
 
-## Remove
-
-### Docker
+### Install Service Catalog CLI
+Follow the appropriate instructions for your operating system to install svcat. The binary can be used by itself, or as a kubectl plugin.
+#### Linux
 ```bash
-sudo yum remove docker docker-common docker-selinux docker-engine
-rm -rf /etc/docker/
+curl -sLO https://download.svcat.sh/cli/latest/linux/amd64/svcat
+chmod +x ./svcat
+sudo mv ./svcat /usr/local/bin/
+svcat version --client
 ```
-
-### Kubernetes Tear Down
-To undo what kubeadm did, you should first drain the node and make sure that the node is empty before shutting it down.
-Talking to the control-plane node with the appropriate credentials, run:
-```bash
-kubectl drain <node name> --delete-local-data --force --ignore-daemonsets
-kubectl delete node <node name>
-```
-
-#### Example
-```bash
-kubectl get nodes
-NAME                      STATUS   ROLES    AGE   VERSION
-k8master.etss.lab   Ready    master   28h   v1.15.0
-k8worker1.etss.lab        Ready    <none>   24h   v1.15.0
-k8worker2.etss.lab        Ready    <none>   24h   v1.15.0
-
-kubectl drain k8master.etss.lab --delete-local-data --force --ignore-daemonsets
-kubectl drain k8worker1.etss.lab  --delete-local-data --force --ignore-daemonsets
-kubectl drain k8worker2.etss.lab  --delete-local-data --force --ignore-daemonsets
-
-kubectl delete node k8worker1.etss.lab
-kubectl delete node k8worker2.etss.lab
-kubectl delete node k8master.etss.lab
-
-```
-Then, on the node being removed, reset all kubeadm installed state:
-```bash
-sudo kubeadm reset
-sudo su -s /bin/bash -c "iptables -F && iptables -t nat -F && iptables -t mangle -F && iptables -X" root
-sudo rm -rf /etc/kubernetes/
-```
-* Note that you may also need to reboot the server to completely remove the CNI.
-
-## Troubleshoot
-
 ## Install Grommet OSB Broker
 
 ### Creating a ClusterServiceBroker Resource
@@ -475,7 +482,7 @@ No resources found.
 ```
 We'll register a broker server with the catalog by creating a new ClusterServiceBroker resource:
 ```bash
-$ kubectl create -f grommet-clusterservicebroker.yaml
+$ kubectl create -f grommet-broker-clusterservicebroker.yaml
 clusterservicebroker.servicecatalog.k8s.io/grommet-broker created
 ```
 When we create this ClusterServiceBroker resource, the service catalog controller responds by querying the broker server to see what services it offers and creates a ClusterServiceClass for each.
@@ -483,31 +490,126 @@ When we create this ClusterServiceBroker resource, the service catalog controlle
 We can check the status of the broker:
 ```bash
 $ svcat describe broker grommet-broker
+ Name:     grommet-broker
+  Scope:    cluster
+  URL:      http://3.86.206.101:8099
+  Status:   Ready - Successfully fetched catalog entries from broker @ 2019-07-09 19:17:10 +0000 UTC
+
 
 $ kubectl get clusterservicebrokers grommet-broker -o yaml
+apiVersion: servicecatalog.k8s.io/v1beta1
+kind: ClusterServiceBroker
+metadata:
+  creationTimestamp: "2019-07-09T19:17:10Z"
+  finalizers:
+  - kubernetes-incubator/service-catalog
+  generation: 1
+  name: grommet-broker
+  resourceVersion: "8"
+  selfLink: /apis/servicecatalog.k8s.io/v1beta1/clusterservicebrokers/grommet-broker
+  uid: 266bed9b-a27e-11e9-9f3e-3aac54c90eba
+spec:
+  relistBehavior: Duration
+  relistRequests: 0
+  url: http://3.86.206.101:8099
+status:
+  conditions:
+  - lastTransitionTime: "2019-07-09T19:17:10Z"
+    message: Successfully fetched catalog entries from broker.
+    reason: FetchedCatalog
+    status: "True"
+    type: Ready
+  lastCatalogRetrievalTime: "2019-07-09T19:17:10Z"
+  reconciledGeneration: 1
+
 ```
 Notice that the status reflects that the broker's catalog of service offerings has been successfully added to our cluster's service catalog.
 
 ### Viewing ClusterServiceClasses and ClusterServicePlans
-The controller created a ClusterServiceClass for each service that the UPS broker provides. We can view the ClusterServiceClass resources available:
+The controller created a ClusterServiceClass for each service that the grommet broker provides. We can view the ClusterServiceClass resources available:
 ```bash
 $ svcat get classes
+   NAME     NAMESPACE     DESCRIPTION
++---------+-----------+-----------------+
+  grommet               grommet service
 
 $ kubectl get clusterserviceclasses
+NAME                                   EXTERNAL-NAME   BROKER           AGE
+97ca7e25-8f63-44a7-99d1-a75729ebfb5e   grommet         grommet-broker   4m30s
+
 ```
 * NOTE: The above kubectl command uses a custom set of columns. The NAME field is the Kubernetes name of the ClusterServiceClass and the EXTERNAL NAME field is the human-readable name for the service that the broker returns.
 
 The Grommet broker provides a service with the external name grommet. View the details of this offering:
 ```bash
 $ svcat describe class grommet
+  Name:              grommet
+  Scope:             cluster
+  Description:       grommet service
+  Kubernetes Name:   97ca7e25-8f63-44a7-99d1-a75729ebfb5e
+  Status:            Active
+  Tags:              ui, grommet
+  Broker:            grommet-broker
 
-$ kubectl get clusterserviceclasses 4f6e6cf6-ffdd-425f-a2c7-3c9258ad2468 -o yaml
+Plans:
+       NAME         DESCRIPTION
++----------------+----------------+
+  grommet-plan-1   Grommet-plan-1
+  grommet-plan-2   grommet-plan-2
+
+$ kubectl get clusterserviceclasses 97ca7e25-8f63-44a7-99d1-a75729ebfb5e -o yaml
+apiVersion: servicecatalog.k8s.io/v1beta1
+kind: ClusterServiceClass
+metadata:
+  creationTimestamp: "2019-07-09T19:17:10Z"
+  name: 97ca7e25-8f63-44a7-99d1-a75729ebfb5e
+  ownerReferences:
+  - apiVersion: servicecatalog.k8s.io/v1beta1
+    blockOwnerDeletion: false
+    controller: true
+    kind: ClusterServiceBroker
+    name: grommet-broker
+    uid: 266bed9b-a27e-11e9-9f3e-3aac54c90eba
+  resourceVersion: "5"
+  selfLink: /apis/servicecatalog.k8s.io/v1beta1/clusterserviceclasses/97ca7e25-8f63-44a7-99d1-a75729ebfb5e
+  uid: 268d3344-a27e-11e9-9f3e-3aac54c90eba
+spec:
+  bindable: true
+  bindingRetrievable: false
+  clusterServiceBrokerName: grommet-broker
+  description: grommet service
+  externalID: 97ca7e25-8f63-44a7-99d1-a75729ebfb5e
+  externalMetadata:
+    displayName: The Grommet Broker
+    listing:
+      blurb: Add a blurb here
+      imageUrl: http://example.com/cat.gif
+      longDescription: UI component library, in a galaxy far far away...
+    provider:
+      name: The grommet
+  externalName: grommet
+  planUpdatable: true
+  requires:
+  - route_forwarding
+  tags:
+  - ui
+  - grommet
+status:
+  removedFromBrokerCatalog: false
 ```
 Additionally, the controller created a ClusterServicePlan for each of the plans for the broker's services. We can view the ClusterServicePlan resources available in the cluster:
 ```bash
 $ svcat get plans
+       NAME        NAMESPACE    CLASS     DESCRIPTION
++----------------+-----------+---------+----------------+
+  grommet-plan-1               grommet   Grommet-plan-1
+  grommet-plan-2               grommet   grommet-plan-2
 
 $ kubectl get clusterserviceplans
+NAME                                   EXTERNAL-NAME    BROKER           CLASS                                  AGE
+2a44ed0e-2c09-4be6-8a81-761ddba2f733   grommet-plan-1   grommet-broker   97ca7e25-8f63-44a7-99d1-a75729ebfb5e   7m2s
+e3c4f66b-b7ae-4f64-b5a3-51c910b19ac0   grommet-plan-2   grommet-broker   97ca7e25-8f63-44a7-99d1-a75729ebfb5e   7m2s
+
 ```
 You can view the details of a ClusterServicePlan with this command:
 ```bash
@@ -520,8 +622,8 @@ Now that a ClusterServiceClass named grommet exists within our cluster's service
 
 Unlike ClusterServiceBroker and ClusterServiceClass resources, ServiceInstance resources must be namespaced. Create a namespace with the following command:
 ```bash
-$ kubectl create namespace test-ns
-namespace "test-ns" created
+$ kubectl create namespace grommet-ns
+namespace/grommet-ns created
 ```
 Then, create the ServiceInstance:
 ```bash
@@ -585,3 +687,46 @@ Delete the helm deployment and the namespace:
 helm delete --purge catalog
 kubectl delete ns catalog
 ```
+
+## Remove
+
+### Docker
+```bash
+sudo yum remove docker docker-common docker-selinux docker-engine
+rm -rf /etc/docker/
+```
+
+### Kubernetes Tear Down
+To undo what kubeadm did, you should first drain the node and make sure that the node is empty before shutting it down.
+Talking to the control-plane node with the appropriate credentials, run:
+```bash
+kubectl drain <node name> --delete-local-data --force --ignore-daemonsets
+kubectl delete node <node name>
+```
+
+#### Example
+```bash
+kubectl get nodes
+NAME                      STATUS   ROLES    AGE   VERSION
+k8master.etss.lab   Ready    master   28h   v1.15.0
+k8worker1.etss.lab        Ready    <none>   24h   v1.15.0
+k8worker2.etss.lab        Ready    <none>   24h   v1.15.0
+
+kubectl drain k8master.etss.lab --delete-local-data --force --ignore-daemonsets
+kubectl drain k8worker1.etss.lab  --delete-local-data --force --ignore-daemonsets
+kubectl drain k8worker2.etss.lab  --delete-local-data --force --ignore-daemonsets
+
+kubectl delete node k8worker1.etss.lab
+kubectl delete node k8worker2.etss.lab
+kubectl delete node k8master.etss.lab
+
+```
+Then, on the node being removed, reset all kubeadm installed state:
+```bash
+sudo kubeadm reset
+sudo su -s /bin/bash -c "iptables -F && iptables -t nat -F && iptables -t mangle -F && iptables -X" root
+sudo rm -rf /etc/kubernetes/
+```
+* Note that you may also need to reboot the server to completely remove the CNI.
+
+## Troubleshoot
