@@ -613,9 +613,29 @@ e3c4f66b-b7ae-4f64-b5a3-51c910b19ac0   grommet-plan-2   grommet-broker   97ca7e2
 ```
 You can view the details of a ClusterServicePlan with this command:
 ```bash
-$ svcat describe plan user-provided-service/default
+$ svcat describe plan grommet/default
 
 $ kubectl get clusterserviceplans 86064792-7ea2-467b-af93-ac9694d96d52 -o yaml
+apiVersion: servicecatalog.k8s.io/v1beta1
+kind: ClusterServicePlan
+metadata:
+  creationTimestamp: "2019-07-09T19:17:10Z"
+  name: 2a44ed0e-2c09-4be6-8a81-761ddba2f733
+  ownerReferences:
+  - apiVersion: servicecatalog.k8s.io/v1beta1
+    blockOwnerDeletion: false
+    controller: true
+    kind: ClusterServiceBroker
+    name: grommet-broker
+    uid: 266bed9b-a27e-11e9-9f3e-3aac54c90eba
+  resourceVersion: "6"
+  selfLink: /apis/servicecatalog.k8s.io/v1beta1/clusterserviceplans/2a44ed0e-2c09-4be6-8a81-761ddba2f733
+  uid: 268e25b5-a27e-11e9-9f3e-3aac54c90eba
+spec:
+  clusterServiceBrokerName: grommet-broker
+  clusterServiceClassRef:
+    name: 97ca7e25-8f63-44a7-99d1-a75729ebfb5e
+
 ```
 ### Creating a New ServiceInstance
 Now that a ClusterServiceClass named grommet exists within our cluster's service catalog, we can create a ServiceInstance that points to it.
@@ -627,38 +647,192 @@ namespace/grommet-ns created
 ```
 Then, create the ServiceInstance:
 ```bash
-$ kubectl create -f grommet-instance.yaml
-serviceinstance.servicecatalog.k8s.io/ups-instance created
+$ kubectl create -f grommet-broker-instance.yaml
+serviceinstance.servicecatalog.k8s.io/grommet-broker-instance created
 ```
 After the ServiceInstance is created, the service catalog controller will communicate with the appropriate broker server to initiate provisioning. Check the status of that process:
 ```bash
-$ svcat describe instance -n test-ns grommet-instance
+$ svcat describe instance -n grommet-ns grommet-broker-instance
+  Name:           grommet-broker-instance
+  Namespace:      grommet-ns
+  Status:         Ready - The instance was provisioned successfully @ 2019-07-09 23:15:56 +0000 UTC
+  DashboardURL:   http://:3000
+  Class:          grommet
+  Plan:           grommet-plan-1
 
-$ kubectl get serviceinstances -n test-ns grommet-instance -o yaml
+Parameters:
+  Access_Key_ID: XXXXXXXXX
+  Flavor: t2.small
+  Image_ID: ami-05f07ee3c7aaadaaa
+  NodeJS_version: 12.1.0
+  Secret_Access_Key: XXXXXXXXXXX
+  region: us-east-1
+
+Bindings:
+No bindings defined
+
+$ kubectl get serviceinstances -n grommet-ns grommet-broker-instance -o yaml
+apiVersion: servicecatalog.k8s.io/v1beta1
+kind: ServiceInstance
+metadata:
+  creationTimestamp: "2019-07-09T22:40:41Z"
+  finalizers:
+  - kubernetes-incubator/service-catalog
+  generation: 1
+  name: grommet-broker-instance
+  namespace: grommet-ns
+  resourceVersion: "83"
+  selfLink: /apis/servicecatalog.k8s.io/v1beta1/namespaces/grommet-ns/serviceinstances/grommet-broker-instance
+  uid: 9479a488-a29a-11e9-9f3e-3aac54c90eba
+spec:
+  clusterServiceClassExternalName: grommet
+  clusterServiceClassRef:
+    name: 97ca7e25-8f63-44a7-99d1-a75729ebfb5e
+  clusterServicePlanExternalName: grommet-plan-1
+  clusterServicePlanRef:
+    name: 2a44ed0e-2c09-4be6-8a81-761ddba2f733
+  externalID: 9479a40b-a29a-11e9-9f3e-3aac54c90eba
+  parameters:
+    Access_Key_ID: XXXXXXXXXX
+    Flavor: t2.small
+    Image_ID: ami-05f07ee3c7aaadaaa
+    NodeJS_version: 12.1.0
+    Secret_Access_Key: XXXXXXXXXX
+    region: us-east-1
+  updateRequests: 0
+  userInfo:
+    groups:
+    - system:masters
+    - system:authenticated
+    uid: ""
+    username: kubernetes-admin
+status:
+  asyncOpInProgress: false
+  conditions:
+  - lastTransitionTime: "2019-07-09T23:15:56Z"
+    message: The instance was provisioned successfully
+    reason: ProvisionedSuccessfully
+    status: "True"
+    type: Ready
+  dashboardURL: http://:3000
+  deprovisionStatus: Required
+  externalProperties:
+    clusterServicePlanExternalID: 2a44ed0e-2c09-4be6-8a81-761ddba2f733
+    clusterServicePlanExternalName: grommet-plan-1
+    parameterChecksum: 2ffa186d88170935135d51e53d4048f2950386d5e3a54e08e811bac054f78779
+    parameters:
+      Access_Key_ID: XXXXXXXXXX
+      Flavor: t2.small
+      Image_ID: ami-05f07ee3c7aaadaaa
+      NodeJS_version: 12.1.0
+      Secret_Access_Key: XXXXXXXXXX
+      region: us-east-1
+    userInfo:
+      groups:
+      - system:masters
+      - system:authenticated
+      uid: ""
+      username: kubernetes-admin
+  observedGeneration: 1
+  orphanMitigationInProgress: false
+  provisionStatus: Provisioned
+  reconciledGeneration: 1
+
+
 ```
 
 ### Requesting a ServiceBinding to use the ServiceInstance
 Now that our ServiceInstance has been created, we can bind to it. Create a ServiceBinding resource:
 ```bash
-$ kubectl create -f grommet-binding.yaml
-servicebinding.servicecatalog.k8s.io/grommet-binding created
+$ kubectl create -f grommet-broker-binding.yaml
+servicebinding.servicecatalog.k8s.io/grommet-broker-binding created
 ```
 After the ServiceBinding resource is created, the service catalog controller will communicate with the appropriate broker server to initiate binding. Generally, this will cause the broker server to create and issue credentials that the service catalog controller will insert into a Kubernetes Secret. We can check the status of this process like so:
 ```bash
-$ svcat describe binding -n test-ns grommet-binding
+$ svcat describe binding -n grommet-ns grommet-broker-binding
+  Name:        grommet-broker-binding
+  Namespace:   grommet-ns
+  Status:      Ready - Injected bind result @ 2019-07-09 23:37:18 +0000 UTC
+  Secret:      grommet-broker-binding
+  Instance:    grommet-broker-instance
 
-$ kubectl get servicebindings -n test-ns grommet-binding -o yaml
+Parameters:
+  No parameters defined
+
+Secret Data:
+  uri        25 bytes
+  username   6 bytes
+
+
+$ kubectl get servicebindings -n grommet-ns grommet-broker-binding -o yaml
+apiVersion: servicecatalog.k8s.io/v1beta1
+kind: ServiceBinding
+metadata:
+  creationTimestamp: "2019-07-09T23:37:17Z"
+  finalizers:
+  - kubernetes-incubator/service-catalog
+  generation: 1
+  name: grommet-broker-binding
+  namespace: grommet-ns
+  resourceVersion: "90"
+  selfLink: /apis/servicecatalog.k8s.io/v1beta1/namespaces/grommet-ns/servicebindings/grommet-broker-binding
+  uid: 7cf4999a-a2a2-11e9-9f3e-3aac54c90eba
+spec:
+  externalID: 7cf498f3-a2a2-11e9-9f3e-3aac54c90eba
+  instanceRef:
+    name: grommet-broker-instance
+  secretName: grommet-broker-binding
+  userInfo:
+    groups:
+    - system:masters
+    - system:authenticated
+    uid: ""
+    username: kubernetes-admin
+status:
+  asyncOpInProgress: false
+  conditions:
+  - lastTransitionTime: "2019-07-09T23:37:18Z"
+    message: Injected bind result
+    reason: InjectedBindResult
+    status: "True"
+    type: Ready
+  externalProperties:
+    userInfo:
+      groups:
+      - system:masters
+      - system:authenticated
+      uid: ""
+      username: kubernetes-admin
+  orphanMitigationInProgress: false
+  reconciledGeneration: 1
+  unbindStatus: Required
+
 ```
 Notice that the status has a Ready condition set. This means our binding is ready to use! If we look at the Secrets in our test-ns namespace, we should see a new one:
 ```bash
-$ kubectl get secrets -n test-ns
+$ kubectl get secrets -n grommet-ns
+NAME                     TYPE                                  DATA   AGE
+default-token-hjm6z      kubernetes.io/service-account-token   3      139m
+grommet-broker-binding   Opaque                                2      3m37s
 ```
 * Notice that a new Secret named grommet-binding has been created.
 ### Deleting the ServiceBinding
+Now, let's unbind the instance:
+```bash
+$ svcat unbind -n grommet-ns grommet-broker-instance
+deleted grommet-broker-binding
+```
+After the deletion is complete, we should see that the Secret is gone:
+```bash
+$ kubectl get secrets -n grommet-ns
+NAME                  TYPE                                  DATA   AGE
+default-token-hjm6z   kubernetes.io/service-account-token   3      154m
+```
+### Deleting the ServiceInstance
 Now, we can deprovision the instance:
 ```bash
-$ svcat deprovision -n test-ns grommet-instance
-deleted grommet-instance
+$ svcat deprovision -n grommet-ns grommet-broker-instance
+deleted grommet-broker-instance
 ```
 ### Deleting the ClusterServiceBroker
 Next, we should remove the ClusterServiceBroker resource. This tells the service catalog to remove the broker's services from the catalog. Do so with this command:
