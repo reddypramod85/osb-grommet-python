@@ -1,0 +1,16 @@
+apiVersion: servicecatalog.k8s.io/v1beta1
+kind: ServiceInstance
+metadata:
+  name: grommet-broker-instance
+  namespace: grommet-ns
+spec:
+  clusterServiceClassExternalName: grommet
+  clusterServicePlanExternalName: grommet-plan-1
+  parameters:
+    region: "us-east-1"
+    Access_Key_ID: "AKIAUWDMTYRVLZVQYS7Z"
+    Secret_Access_Key: "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"
+    Image_ID: "ami-05f07ee3c7aaadaaa"
+    Flavor: "t2.small"
+    NodeJS_version: "12.1.0"
+
