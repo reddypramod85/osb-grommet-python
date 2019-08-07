@@ -5,5 +5,7 @@
 *.ali
 *aws-try.py
 *ec2*.py
-*ec2*.pem
 *osb_template_bkp.py
+*cloudinit_react.txt
+*Democommands.sh
+osb_template_print.py
